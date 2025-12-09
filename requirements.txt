@@ -1,0 +1,12 @@
+statsmodels
+pandas
+numpy
+matplotlib
+plotly
+psycopg2-binary
+python-dotenv
+streamlit
+bcrypt
+prophet
+cmdstanpy
+Cython

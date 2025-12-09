@@ -1,0 +1,6 @@
+env310_64/
+__pycache__/
+*.pyc
+*.pyo
+.vscode/
+.env

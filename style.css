@@ -1,0 +1,35 @@
+/*cambiamos el color de los botones*/
+div.stFormSubmitButton > button {
+    background-color: #D97A22 !important;  /* Naranja */
+    color: white !important;
+    border-radius: 8px !important;
+    border: none !important;
+    padding: 0.6em 1.2em !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+}
+
+div.stFormSubmitButton > button:hover {
+    background-color: #B86315 !important; /* Naranja oscuro */
+    color: white !important;
+}
+
+
+/* ===== BOTONES NORMALES: st.button ===== */
+div.stButton > button {
+    background-color: #D97A22 !important;   /* Naranja */
+    color: white !important;
+    padding: 1em 2em !important;            /* Más grande */
+    border-radius: 10px !important;         /* Bordes redondeados */
+    font-size: 1.5rem !important;           /* Texto más grande */
+    font-weight: 600 !important;
+    border: none !important;
+    cursor: pointer !important;
+    transition: 0.2s ease-in-out;
+}
+
+/* Hover */
+div.stButton > button:hover {
+    background-color: #B86315 !important;
+    transform: scale(1.03); /* pequeño zoom */
+}
