@@ -1,0 +1,635 @@
+{
+  "name": "Asitentente Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -544,
+        688
+      ],
+      "id": "751452ce-ba88-467c-8659-45d90c6049a2",
+      "name": "Telegram Trigger1",
+      "webhookId": "895ed466-44dc-48b9-a7c0-a0461dd39a9b",
+      "credentials": {
+        "telegramApi": {
+          "id": "EoPVX60xRr7CA4Hv",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6a52404a-eb85-4efc-b4f1-0967f436b3a0",
+              "leftValue": "={{ $json.id_usuario }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "866aa0e2-5ed4-4c33-8e7e-6d15dd748076",
+              "leftValue": "={{ $json.id_producto }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "943c9214-a80c-4e57-9a5e-a52feda24e65",
+              "leftValue": "={{ $json.duplicado }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        704,
+        688
+      ],
+      "id": "ab41f1c4-e01f-42de-af31-118210501568",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ \n  $json.message.document?.file_id ||\n  $json.message.photo?.[ $json.message.photo.length - 1 ].file_id\n}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        688
+      ],
+      "id": "fa0105d8-9974-4758-a32a-47a28bbfb6e8",
+      "name": "Guarda_imagen",
+      "webhookId": "9921c078-c7f2-437a-adb5-e49dbec6ccd7",
+      "credentials": {
+        "telegramApi": {
+          "id": "EoPVX60xRr7CA4Hv",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "text": "=Extrae todos los datos de esta factura y devuélvelos en JSON ESTRICTAMENTE con el siguiente formato:\n\n{\n  \"tipo_movimiento\": \"venta/ compra\",\n  \"fecha_mov\": \"\",\n  \"codigo_mov\": \"\",\n  \"id_usuario\": \"\",\n  \"metodo_registro\": \"\",\n  \"items\": [\n    {\n      \"id_producto\": \"\",\n      \"nombre_producto\": \"\",\n      \"marca\": \"\",\n      \"cantidad\": \"\",\n      \"precio_unitario\": \"\",\n      \"precio_total\": \"\"\n    }\n  ]\n}\n\nREGLAS IMPORTANTES:\n- Responde SOLO con el JSON.\n- NO incluyas ningún texto adicional antes o después.\n- NO uses ```json ni ningún tipo de bloque de código.\n- Todos los valores deben ser texto simple.\n- Si algún dato no aparece en la factura, devuelve una cadena vacía \"\".\n- “items” debe ser una lista con todos los productos de la factura.\n- Cuando sea precios no le pongas el signo de tipo de moneda\n-El método de registro siempre es \"telegram\"\n- El JSON debe ser válido y parseable.\n",
+        "inputType": "base64",
+        "binaryPropertyName": "=data",
+        "options": {
+          "maxTokens": 500
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -96,
+        688
+      ],
+      "id": "401e9756-89ec-4aff-8ec9-269642e5cb79",
+      "name": "Analizador_datos",
+      "credentials": {
+        "openAiApi": {
+          "id": "wWyWMPfUXwrcYeB2",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function findText(obj) {\n  if (!obj || typeof obj !== 'object') return null;\n  if (obj.text) return obj.text;\n\n  for (const key of Object.keys(obj)) {\n    const found = findText(obj[key]);\n    if (found) return found;\n  }\n  return null;\n}\n\nlet raw = findText($json);\n\nif (!raw) {\n  throw new Error(\"❌ No se encontró la propiedad 'text'\");\n}\n\n// 1. Eliminar ```json y ```\nraw = raw.replace(/```json/g, \"\").replace(/```/g, \"\");\n\n// 2. Eliminar caracteres basura al inicio o final\nraw = raw.trim();\n\n// 3. Corregir comillas mal escapadas ejemplo: \"Monitor 4K\" -> \"Monitor 4K\"\nraw = raw.replace(/\\\\?\"/g, '\"');\n\n// 4. Quitar saltos de línea dentro de strings\nraw = raw.replace(/\\n/g, \" \");\n\n// 5. Arreglar comas sueltas antes de llaves o corchetes\nraw = raw.replace(/,(\\s*[}\\]])/g, \"$1\");\n\n// Intentar parsear\nlet parsed;\ntry {\n  parsed = JSON.parse(raw);\n} catch (e) {\n  throw new Error(\"❌ JSON sigue siendo inválido:\\n\" + e.message + \"\\n\\nJSON limpio:\\n\" + raw);\n}\n\n// Obtener el ID del usuario desde Telegram Trigger\nconst id_telegram = $node[\"Telegram Trigger1\"].json.message.from.id;\n\n// Añadirlo al JSON parseado\nparsed.id_telegram = id_telegram;\n\nreturn [{ json: parsed }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        688
+      ],
+      "id": "8100bd9b-5d1d-407d-a6f9-f607f4e526ef",
+      "name": "Limpia_datos"
+    },
+    {
+      "parameters": {
+        "jsCode": "const factura = $json;\n\nconst output = factura.items.map(item => ({\n  tipo_movimiento: factura.tipo_movimiento,\n  fecha_mov: factura.fecha_mov,\n  codigo_mov: factura.codigo_mov,\n  id_usuario: factura.id_usuario,\n  id_producto: item.id_producto,\n  nombre_producto: item.nombre_producto,\n  marca: item.marca,\n  cantidad: item.cantidad,\n  precio_unitario: item.precio_unitario,\n  precio_total: item.precio_total,\n  metodo_registro: factura.metodo_registro,\n  id_telegram: factura.id_telegram\n\n}));\n\nreturn output.map(i => ({ json: i }));\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        688
+      ],
+      "id": "90c304e2-944e-44c1-9a90-d27f3335a0df",
+      "name": "Estructura_datos",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  $2::text AS codigo_mov,\n  $3::text AS nombre_producto,\n  $4::text AS marca,\n  $6::INTEGER AS cantidad,\n  $7::text AS metodo_registro,\n  $8::text AS tipo_movimiento,\n  $9::INTEGER AS id_telegram,\n  $10::TEXT AS fecha_mov,\n\n  -- producto enviado por el bot\n  $5::integer AS id_producto,\n\n  -- usuario si existe\n  (\n     SELECT id_usuario\n     FROM usuarios\n     WHERE id_usuario = $1\n     LIMIT 1\n  ) AS id_usuario,\n\n  -- ID real del producto buscado por nombre + marca\n  (\n     SELECT id_producto\n     FROM productos\n     WHERE nombre_producto = $3 \n       AND marca = $4\n     LIMIT 1\n  ) AS id_producto,\n\n  -- validación de duplicado\n  (\n     SELECT COUNT(*)\n     FROM transacciones \n     WHERE codigo_mov = $2 \n  ) AS duplicado;\n\n",
+        "options": {
+          "queryReplacement": "={{ $json.id_usuario }},{{ $json.codigo_mov }},{{ $json.nombre_producto }},{{ $json.marca }},{{ $json.id_producto }},{{ $json.cantidad }},{{ $json.metodo_registro }},{{ $json.tipo_movimiento }},{{ $json.id_telegram }},{{ $json.fecha_mov }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        512,
+        688
+      ],
+      "id": "d80ede87-fa4e-4bd9-8bda-79992095fd50",
+      "name": "realiza_validaciones",
+      "executeOnce": false,
+      "credentials": {
+        "postgres": {
+          "id": "Si6gYG1lPH9J8BOa",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.id_telegram }}",
+        "text": "\"No se puede registrar, contacte con el administrador\" ",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        832,
+        1104
+      ],
+      "id": "99799c47-bde4-40ce-bb7e-191699027ca6",
+      "name": "Mensaje_negando_mov",
+      "webhookId": "b7174ef5-ca86-4860-82fb-bcebbea7278f",
+      "credentials": {
+        "telegramApi": {
+          "id": "EoPVX60xRr7CA4Hv",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "codigo_mov, id_usuario, fecha_mov, metodo_registro, id_telegram",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        864,
+        416
+      ],
+      "id": "7ecf2d74-84b4-41f4-8a93-5c36a21287b8",
+      "name": "Prepara_datos"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [items[0]];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        416
+      ],
+      "id": "0c0a3dad-c837-4aa8-820b-df4f1b6f270e",
+      "name": "Datos_unicos"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "transacciones",
+          "mode": "list",
+          "cachedResultName": "transacciones"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "codigo_mov": "={{ $json.codigo_mov }}",
+            "id_usuario": "={{ $json.id_usuario }}",
+            "fecha_mov": "={{ $json.fecha_mov }}",
+            "metodo_registro": "={{ $json.metodo_registro }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_transaccion",
+              "displayName": "id_transaccion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "codigo_mov",
+              "displayName": "codigo_mov",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id_usuario",
+              "displayName": "id_usuario",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha_mov",
+              "displayName": "fecha_mov",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "referencia",
+              "displayName": "referencia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "metodo_registro",
+              "displayName": "metodo_registro",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "estado",
+              "displayName": "estado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1680,
+        416
+      ],
+      "id": "cd119159-a034-49b5-ba3f-bab7a95aa879",
+      "name": "Registra_transaccion",
+      "credentials": {
+        "postgres": {
+          "id": "Si6gYG1lPH9J8BOa",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger1').item.json.message.chat.id }}",
+        "text": "=✅ *REGISTRO EXITOSO*\n\n🔖 Código: `{{ $json.codigo_mov }}`\n\n✨ Tu movimiento ha sido registrado correctamente",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_notification": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2016,
+        688
+      ],
+      "id": "5709c470-95c3-4d74-9c77-984a0ce54cee",
+      "name": "Mensaje_confirmación",
+      "webhookId": "8c980d53-aa85-4205-bbd1-91cc957ac319",
+      "notesInFlow": false,
+      "credentials": {
+        "telegramApi": {
+          "id": "EoPVX60xRr7CA4Hv",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "codigo_mov, id_producto, cantidad, tipo_movimiento",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        672
+      ],
+      "id": "39cb9638-f1de-4338-9e95-79cf7d3b852f",
+      "name": "Prepara_datos2"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "mov_inventario",
+          "mode": "list",
+          "cachedResultName": "mov_inventario"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id_producto": "={{ $json.id_producto }}",
+            "cantidad": "={{ $json.cantidad }}",
+            "codigo_mov": "={{ $json.codigo_mov }}",
+            "tipo_movimiento": "={{ $json.tipo_movimiento }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "id_mov",
+              "displayName": "id_mov",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "codigo_mov",
+              "displayName": "codigo_mov",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id_producto",
+              "displayName": "id_producto",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cantidad",
+              "displayName": "cantidad",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "fecha",
+              "displayName": "fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "tipo_movimiento",
+              "displayName": "tipo_movimiento",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1392,
+        672
+      ],
+      "id": "d894e341-7315-4ed6-a857-e07f6b20b204",
+      "name": "Regista_movimientos",
+      "credentials": {
+        "postgres": {
+          "id": "Si6gYG1lPH9J8BOa",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Guarda_imagen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Prepara_datos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepara_datos2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mensaje_negando_mov",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guarda_imagen": {
+      "main": [
+        [
+          {
+            "node": "Analizador_datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analizador_datos": {
+      "main": [
+        [
+          {
+            "node": "Limpia_datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limpia_datos": {
+      "main": [
+        [
+          {
+            "node": "Estructura_datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Estructura_datos": {
+      "main": [
+        [
+          {
+            "node": "realiza_validaciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "realiza_validaciones": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara_datos": {
+      "main": [
+        [
+          {
+            "node": "Datos_unicos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datos_unicos": {
+      "main": [
+        [
+          {
+            "node": "Registra_transaccion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registra_transaccion": {
+      "main": [
+        [
+          {
+            "node": "Mensaje_confirmación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara_datos2": {
+      "main": [
+        [
+          {
+            "node": "Regista_movimientos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "967ca39b-28c2-46c2-ad3e-f112f158c087",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "963d8dc57fb0b9e23227a7311102eaf5e566cbcfcfceb1574fe127ccc819c647"
+  },
+  "id": "CHGG0wCJPumYHQAb",
+  "tags": []
+}
